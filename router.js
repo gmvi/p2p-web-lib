@@ -5,52 +5,21 @@ var isEscapedColonRegexp = /^\\:/;
 var startsWithSlash = /^\//;
 var endsWithSlash = /\/$/;
 
-// When a handler function is called, the next function should be wrapped to
-// execute exactly once and defer to the next event loop.
-//   fn(req, res, wrap(next));
-// Thus next will always be non-blocking inside a handler function, and
-// any erroneous secondary calls to next will be safe.
+// Style Notes:
+// To help reason aobut the code, all functions named next in this codebase
+// should be written to be guaranteed to return quickly and be idempotent
 
-var Sym = (function() {
-  if (typeof Symbol == 'function') {
-    return Symbol;
-  } else {
-    return function(description) {
-      if (this instanceof Sym) {
-        throw new TypeError('Sym is not a constructor');
-      }
-      return 'p2p-'+description;
+// wraps a function to make it both defered and idempotent
+var wrap = function(_next) {
+  var called = false;
+  return function() {
+    if (called) {
+      throw new Error('next called twice');
+    } else {
+      called = true;
+      _.defer(_next);
     }
-  }
-})();
-
-var wrappedSym = Sym('wrapped');
-var origFnSym = Sym('origFn');
-var wrap = function(fn) {
-  if (fn[wrappedSym] === true) {
-    return fn;
-  } else {
-    var called = false;
-    var wrappedFn = function() {
-      if (called) return;
-      else {
-        var args = Array.prototype.slice.call(arguments);
-        args.unshift(fn);
-        called = true;
-        _.defer.apply(_, args);
-      }
-    };
-    wrappedFn[wrappedSym] = true;
-    wrappedFn[origFnSym] = fn;
-    return wrappedFn;
-  }
-};
-var unwrap = function(fn) {
-  if (fn[wrappedSym] === true) {
-    return fn[origFnSym];
-  } else {
-    return fn;
-  }
+  };
 };
 
 var compose = function(fns) {
@@ -69,8 +38,10 @@ var compose = function(fns) {
     var finalI = funcs.length - 1;
     function _next() {
       if (i == finalI) {
-        funcs[i](req, res, wrap(next));
+        // next satisfies the required properties
+        funcs[i](req, res, next);
       } else {
+        // _next must be wrapped
         funcs[i](req, res, wrap(_next));
         i++
       }
@@ -217,14 +188,8 @@ _.assign(Router.prototype, {
       if (i < stack.length) {
         var middleware = stack[i++];
         var nextCalled = false;
-        middleware(req, res, function() {
-          if (nextCalled) {
-            throw new Error('next called twice');
-          } else {
-            nextCalled = true;
-            _.defer(_next);
-          }
-        });
+        // _next must be wrapped
+        middleware(req, res, wrap(_next));
       } else {
         end();
       }
