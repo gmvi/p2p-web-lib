@@ -198,5 +198,3 @@ _.assign(Router.prototype, {
 });
 
 module.exports = Router;
-module.exports.wrap = wrap;
-module.exports.unwrap = unwrap;

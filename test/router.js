@@ -33,21 +33,6 @@ var demux = function(n, fn, thisVal) {
   return a;
 }
 
-describe('Router.wrap', function() {
-  it('should call the underlying fn', function(done) {
-    var wrapped = Router.wrap(done);
-    wrapped.should.not.equal(done);
-    wrapped();
-  });
-
-  it('should expose underlying fn when unwrapped', function(done) {
-    var wrapped = Router.wrap(done);
-    var unwrapped = Router.unwrap(wrapped);
-    unwrapped.should.equal(done);
-    unwrapped();
-  });
-});
-
 describe('demux', function() {
   it('should work for one', function(done) {
     var one = demux(1, done);
