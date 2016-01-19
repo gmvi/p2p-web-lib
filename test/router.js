@@ -33,6 +33,21 @@ var demux = function(n, fn, thisVal) {
   return a;
 }
 
+describe('Router.wrap', function() {
+  it('should call the underlying fn', function(done) {
+    var wrapped = Router.wrap(done);
+    wrapped.should.not.equal(done);
+    wrapped();
+  });
+
+  it('should expose underlying fn when unwrapped', function(done) {
+    var wrapped = Router.wrap(done);
+    var unwrapped = Router.unwrap(wrapped);
+    unwrapped.should.equal(done);
+    unwrapped();
+  });
+});
+
 describe('demux', function() {
   it('should work for one', function(done) {
     var one = demux(1, done);
@@ -156,6 +171,34 @@ describe('Router', function() {
       });
     });
 
+    it('should mount routers', function(done) {
+      var subRouter = new Router();
+      subRouter.use('b', function(req, res, next) {
+        req.path.should.equal('b');
+        done();
+      });
+      router.use('a', subRouter);
+      router.handle(make('get', 'a/b'), {}, function() {
+        done(new Error(NOT_HANDLED_ERROR));
+      });
+    });
+
+    it('should mount handlers on multiple routes', function(done) {
+      var dones = demux(2, done);
+      router.use(['a','b'], function(req, res, next) {
+        if (req.path == 'a') {
+          dones[0]();
+        } else if (req.path == 'b') {
+          dones[1]();
+        }
+      });
+      router.handle(make('get', 'a'), {}, function() {
+        done(new Error(NOT_HANDLED_ERROR));
+      });
+      router.handle(make('get', 'b'), {}, function() {
+        done(new Error(NOT_HANDLED_ERROR));
+      });
+    });
   });
 
   describe('#get()', function() {
